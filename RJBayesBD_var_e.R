@@ -127,15 +127,9 @@ MCMC.BD<-function(phy,diversity,root.rate=0.01,a=0,e=3,ngen=100000,sfreq=100,lam
 			}
 		
 		else if (z==7){ # change e = prior mean # of rate shifts
-			#r<-runif(1,-elam,elam) # unifrom prior 
-			#ne<-r+e # unifrom prior   
-			#if (ne<0) ne<-0+(0-ne)	# unifrom prior
-			#else if (ne>NN) ne <-NN-(ne-NN) # unifrom prior
-			#else ne<-ne # unifrom prior
-			#ratio<-((exp(-ne))*(ne^N))/((exp(-(e)))*(e^N)) # unifrom prior
-			r<-runif(1,exp(-0.5),exp(0.5)) # gamma prior
-			ne<-r*e # gamma prior
-			ratio<-((ne/e)^avge)*exp(-elam*(ne-e)) #gamma prior
+			r<-runif(1,0,1) #pick uniform between 0 and 1
+			ne<-e*exp((r-0.5)*elam) # new e
+			ratio<-exp((r-0.5)*elam) #hastings ratio
 			accept=7
 			#cat("\n",ratio,"\n")
 		  if(runif(1,0,1) < ratio) return(list(edge,logLik,rate.vect,root.rate,accept,1,ne))

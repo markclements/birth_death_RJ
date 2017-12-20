@@ -1,28 +1,28 @@
-MCMC.BD<-function(phy,diversity,root.rate=0.01,a=0,e=3,ngen=100000,sfreq=100,lam=0.01,expl=0.01,elam=1,avge=1){
+MCMC.BD<-function(phy,diversity,root.rate=0.01,a=0,e=3,ngen=1000000,sfreq=100,lam=1,expl=1){
 	require(ape)
 	if (is.null(attr(phy, "order")) || attr(phy, "order") == "cladewise")
-	phy<- reorder(phy,"c") 
+	phy<- reorder.phylo(phy,"c") 
 	
 	edge<-phy$edge
 	stem.ages<-branching.times(phy)
 	edge<-cbind(edge,stem.ages[phy$edge[,1]-Ntip(phy)]) # birth time xi =3
 	edge<-cbind(edge,phy$edge.length) # branch length or waiting time, ti = 4
-	edge<-cbind(edge,diversity[phy$edge[,2]])# assign diversity to termainals, NAs are for internals. 
-	edge<-cbind(edge,NA) # rate column = 6
-	edge<-cbind(edge,NA) # node split column =7
-	edge<-cbind(edge,0) # rate group column = 8
+	edge<-cbind(edge,diversity[phy$edge[,2]])# assign diversity to termainals, NAs are for internals. =5
+	edge<-cbind(edge,NA) # div rate column = 6
+	edge<-cbind(edge,NA) # div node split column =7
+	edge<-cbind(edge,0) # div rate group column = 8
 	dimnames(edge)<-NULL
 	rate.vect<-numeric(1)
 	avge<-e
 #_______________________________________________________________________________
 	# Main MCMC function
-		MCMC<-function(logLik,edge,root.rate,a,e,rate.vect,lam,expl,elam,avge){
+		MCMC<-function(logLik,edge,root.rate,a,e,rate.vect,lam,expl){
 		N <-length(which(edge[,7]==1))
-		if (N==0) z<-sample(c(1,6),1,prob=c(30,60))
-		else if (N==length(edge[,1])) z<-sample(c(2,5,6,7),1,prob=c(25,25,25,25))
-		else if (N>0 && N<length(edge[,1])) z<-sample(c(3:7),1,prob=c(10,10,20,50,10))  
+		if (N==0) z<-sample(c(1,6),1,prob=c(30,60)) # 1=have to split, 6=change root rate
+		else if (N==length(edge[,1])) z<-sample(c(2,5,6),1,prob=c(33,33,33)) #2=must merge, 5=change rate modifier
+		else if (N>0 && N<length(edge[,1])) z<-sample(c(3:6),1,prob=c(10,10,30,50))  
 		#cat(a,"\n")
-		if (z==1){ #have to split
+		if (z==1){# must split diversity
 			x<-sample(1:length(edge[,1]),1)
 			rate.vect.new<-rexp(1)
 			newedge<-split(edge,x)
@@ -33,11 +33,11 @@ MCMC.BD<-function(phy,diversity,root.rate=0.01,a=0,e=3,ngen=100000,sfreq=100,lam
 			lr <- newlogLik-logLik
 			ratio <- exp(lr)*HP
 			#cat(accept," ",logLik," ", newlogLik," ",N," ", ratio, "\n")
-		  if (runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect.new,root.rate,accept,1,e))
-		  else return(list(edge,logLik,rate.vect,root.rate,accept,0,e))
+		  if (runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect.new,root.rate,accept,1))
+		  else return(list(edge,logLik,rate.vect,root.rate,accept,0))
 			}
 		
-		else if (z==2){# must merge
+		else if (z==2){# must merge diversity
 			x<-sample(1:length(edge[,1]),1)
 			rate.vect.new<-rate.vect[-x]
 			newedge<-merge(edge,x)
@@ -48,8 +48,8 @@ MCMC.BD<-function(phy,diversity,root.rate=0.01,a=0,e=3,ngen=100000,sfreq=100,lam
 			lr <- newlogLik-logLik
 			ratio <- exp(lr)*HP
 			#cat(accept," ",logLik," ", newlogLik," ",N," ", ratio, "\n")
-		  if (runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect.new,root.rate,accept,1,e))
-		  else return(list(edge,logLik,rate.vect,root.rate,accept,0,e))
+		  if (runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect.new,root.rate,accept,1))
+		  else return(list(edge,logLik,rate.vect,root.rate,accept,0))
 			}
 		
 		else if (z==3){# regular merge
@@ -69,8 +69,8 @@ MCMC.BD<-function(phy,diversity,root.rate=0.01,a=0,e=3,ngen=100000,sfreq=100,lam
 			lr <- newlogLik-logLik
 			ratio <- exp(lr)*HP
 			#cat(accept," ",logLik," ", newlogLik," ",N," ", ratio, "\n")
-		  if (runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect.new,root.rate,accept,1,e))
-		  else return(list(edge,logLik,rate.vect,root.rate,accept,0,e))
+		  if (runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect.new,root.rate,accept,1))
+		  else return(list(edge,logLik,rate.vect,root.rate,accept,0))
 			}
 		
 		else if (z==4){# regular split
@@ -85,8 +85,8 @@ MCMC.BD<-function(phy,diversity,root.rate=0.01,a=0,e=3,ngen=100000,sfreq=100,lam
 			lr <- newlogLik-logLik
 			ratio <- exp(lr)*HP
 			#cat(accept," ",logLik," ", newlogLik," ",N," ", ratio, "\n")
-		  if(runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect.new,root.rate,accept,1,e))
-		  else return(list(edge,logLik,rate.vect,root.rate,accept,0,e))
+		  if(runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect.new,root.rate,accept,1))
+		  else return(list(edge,logLik,rate.vect,root.rate,accept,0))
 			}
 		
 		else if (z==5){ #change exisiting rate multiplier
@@ -103,43 +103,27 @@ MCMC.BD<-function(phy,diversity,root.rate=0.01,a=0,e=3,ngen=100000,sfreq=100,lam
 			lr <- newlogLik-logLik
 			ratio <- exp(lr)*r
 			#cat(accept," ",logLik," ", newlogLik," ",N," ", ratio, "\n")
-		  if(runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect.new,root.rate,accept,1,e))
-		  else return(list(edge,logLik,rate.vect,root.rate,accept,0,e))
+		  if(runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect.new,root.rate,accept,1))
+		  else return(list(edge,logLik,rate.vect,root.rate,accept,0))
 			}
 		
 		else if (z==6){ #change root rate
 			#rr<-root.rate + runif(1,-0.05,0.05) # simply add a small value to rate
-			rr<-runif(1,root.rate-(lam/2),root.rate+(lam/2)) # 
-			if (rr<=0) new.root.rate<-0+(0-rr)	
-			else if (rr>=10) new.root.rate <-10-(rr-10)
-			else new.root.rate<-rr
-			#r<-exp(runif(1,0,1)-0.5)*lam #proportionally grow/shrink
-			#new.root.rate<-root.rate*r
+			#rr<-runif(1,root.rate-(lam/2),root.rate+(lam/2)) # 
+			#if (rr<=0) new.root.rate<-0+(0-rr)	
+			#else if (rr>=10) new.root.rate <-10-(rr-10)
+			#else new.root.rate<-rr
+			r<-exp(runif(1,0,1)-0.5)*lam #proportionally grow/shrink
+			new.root.rate<-root.rate*r
 			newedge<-rate.calc(edge,new.root.rate,rate.vect)
 			newlogLik<-likelihood(newedge,a)
 			accept=6
 			lr <- newlogLik-logLik
-			ratio <- exp(lr)
-			#ratio <- exp(lr) * r
+			#ratio <- exp(lr)
+			ratio <- exp(lr) * r
 			#cat(accept," ",logLik," ", newlogLik," ",N," ", ratio, "\n")
-		  if(runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect,new.root.rate,accept,1,e))
-		  else return(list(edge,logLik,rate.vect,root.rate,accept,0,e))
-			}
-		
-		else if (z==7){ # change e = prior mean # of rate shifts
-			#r<-runif(1,-elam,elam) # unifrom prior 
-			#ne<-r+e # unifrom prior   
-			#if (ne<0) ne<-0+(0-ne)	# unifrom prior
-			#else if (ne>NN) ne <-NN-(ne-NN) # unifrom prior
-			#else ne<-ne # unifrom prior
-			#ratio<-((exp(-ne))*(ne^N))/((exp(-(e)))*(e^N)) # unifrom prior
-			r<-runif(1,exp(-0.5),exp(0.5)) # gamma prior
-			ne<-r*e # gamma prior
-			ratio<-((ne/e)^avge)*exp(-elam*(ne-e)) #gamma prior
-			accept=7
-			#cat("\n",ratio,"\n")
-		  if(runif(1,0,1) < ratio) return(list(edge,logLik,rate.vect,root.rate,accept,1,ne))
-		  else return(list(edge,logLik,rate.vect,root.rate,accept,0,e))
+		  if(runif(1,0,1) < ratio) return(list(newedge,newlogLik,rate.vect,new.root.rate,accept,1))
+		  else return(list(edge,logLik,rate.vect,root.rate,accept,0))
 			}
 		
 		}
@@ -234,36 +218,39 @@ MCMC.BD<-function(phy,diversity,root.rate=0.01,a=0,e=3,ngen=100000,sfreq=100,lam
 
 # BEGIN CALCULATION
 	count.it<-ngen/sfreq
-	out.edge <- vector("list",count.it)
-	out.logLik <- 1:count.it
-	out.rates <- vector("list",count.it)
-	out.ratecat <- vector("list",count.it)
-	out.rateshift <- vector("list",count.it)
-	out.proposal<-1:count.it
-	out.accept<-1:count.it
-	out.root.rate<-1:count.it
+	#out.edge <- vector("list",count.it)
+	#out.logLik <- 1:count.it
+	#out.rates <- vector("list",count.it)
+	#out.ratecat <- vector("list",count.it)
+	#out.rateshift <- vector("list",count.it)
+	#out.proposal<-1:count.it
+	#out.accept<-1:count.it
+	#out.root.rate<-1:count.it
 	count.i<-1
 	for(i in (1:ngen)) {
-		step<-MCMC(logLik,edge,root.rate,a,e,rate.vect,lam,expl,elam,avge)
+		step<-MCMC(logLik,edge,root.rate,a,e,rate.vect,lam,expl)
 	  	edge<-step[[1]]
 	  	logLik<-step[[2]]	
 	  	rate.vect<-step[[3]]
 	  	root.rate<-step[[4]]	
-		e<-step[[7]]
+		#e<-step[[7]]
 	if (i==1 || i%%sfreq==0){
-	out.edge[[count.i]]<-edge[,6]
-	out.logLik[[count.i]]<-logLik
-	out.rates[[count.i]]<-rate.vect
-	out.ratecat[[count.i]]<-edge[,8]
-	out.rateshift[[count.i]] <-edge[,7]
-	out.proposal[[count.i]]<-step[[5]]
-	out.accept[[count.i]]<-step[[6]]
-	out.root.rate[[count.i]]<-root.rate
-	cat(e," ",logLik,"\n",edge[,6],"\n",edge[,8],"\n","\n")
+	#out.edge[[count.i]]<-edge[,6]
+	#out.logLik[[count.i]]<-logLik
+	#out.rates[[count.i]]<-rate.vect
+	#out.ratecat[[count.i]]<-edge[,8]
+	#out.rateshift[[count.i]] <-edge[,7]
+	#out.proposal[[count.i]]<-step[[5]]
+	#out.accept[[count.i]]<-step[[6]]
+	#out.root.rate[[count.i]]<-root.rate
+	#cat(e," ",logLik,"\n",edge[,6],"\n",edge[,8],"\n","\n")
+	plot(phy,cex=0.5)
+	edgelabels(round(edge[,6],3),frame="n",cex=0.6)
+	cat(count.i,logLik,edge[,6],"\n", sep=" ", file="divrates", append=TRUE)
+	cat(edge[,7],"\n", file="divshift", append=TRUE)
+	cat(step[[5]], step[[6]],"\n", sep=" ", file="accept", append=TRUE)
 	count.i<-count.i+1
 		}
 	}
-list(rate.vect=out.rates,logLik=out.logLik,edge.rates=out.edge,rate.cat=out.ratecat,rate.shift=out.rateshift,proposal=out.proposal, accept=out.accept, root.rate=out.root.rate)
+#list(rate.vect=out.rates,logLik=out.logLik,edge.rates=out.edge,rate.cat=out.ratecat,rate.shift=out.rateshift,proposal=out.proposal, accept=out.accept, root.rate=out.root.rate)
 }
-
-
